@@ -65,6 +65,7 @@ kbd.h
 kbd.c
 console.c
 uart.c
+picirq.c
 
 # user-level
 initcode.S
