@@ -668,3 +668,38 @@ nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
 }
+
+#define SWAPBASE	500
+#define SWAPMAX		(100000 - SWAPBASE)
+
+void swapread(char* ptr, int blkno)
+{
+	struct buf* bp;
+	int i;
+
+	if ( blkno < 0 || blkno >= SWAPMAX )
+		panic("swapread: blkno exceed range");
+
+	for ( i=0; i < 8; ++i ) {
+		bp = bread(0, blkno + SWAPBASE + i);
+		memmove(ptr + i * BSIZE, bp->data, BSIZE);
+		brelse(bp);
+	}
+}
+
+void swapwrite(char* ptr, int blkno)
+{
+	struct buf* bp;
+	int i;
+
+	if ( blkno < 0 || blkno >= SWAPMAX )
+		panic("swapread: blkno exceed range");
+
+	for ( i=0; i < 8; ++i ) {
+		bp = bread(0, blkno + SWAPBASE + i);
+		memmove(bp->data, ptr + i * BSIZE, BSIZE);
+		bwrite(bp);
+		brelse(bp);
+	}
+}
+

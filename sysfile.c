@@ -442,3 +442,27 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+
+int sys_swapread(void)
+{
+	char* ptr;
+	int blkno;
+
+	if(argptr(0, &ptr, PGSIZE) < 0 || argint(1, &blkno) < 0 )
+		return -1;
+
+	swapread(ptr, blkno);
+	return 0;
+}
+
+int sys_swapwrite(void)
+{
+	char* ptr;
+	int blkno;
+
+	if(argptr(0, &ptr, PGSIZE) < 0 || argint(1, &blkno) < 0 )
+		return -1;
+
+	swapwrite(ptr, blkno);
+	return 0;
+}
