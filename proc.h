@@ -50,7 +50,20 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  // MLFQ
+  struct proc *next;           // Next process in the queue
+  struct proc *prev;           // Previous process in the queue
 };
+
+typedef struct __queue { 
+  struct proc *head; // head of the queue
+  struct proc *tail; // tail of the queue
+  int size; // size of the queue
+  int nice; // nice value of the queue
+} queue;
+
+extern int timerint;
 
 // Process memory is laid out contiguously, low addresses first:
 //   text

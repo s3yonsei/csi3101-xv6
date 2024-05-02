@@ -13,8 +13,12 @@ struct {
 } ptable;
 
 static struct proc *initproc;
+queue q0;
+queue q1;
+queue q2;
 
 int nextpid = 1;
+int timerint = 0;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -24,6 +28,79 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+}
+
+void
+queue_init(queue *q, int nice){
+  q->head = 0;
+  q->tail = 0;
+  q->size = 0;
+  q->nice = nice;
+}
+
+struct proc*
+get_head(queue *q){
+  return q->head;
+}
+
+struct proc*
+get_tail(queue *q){
+  return q->tail;
+}
+
+void
+enqueue(queue *q, struct proc *p){
+  if (q->size == 0){
+    q->head = p;
+    q->tail = p;
+    p->next = 0;
+    p->prev = 0;
+  } else {
+    q->tail->next = p;
+    p->prev = q->tail;
+    q->tail = p;
+    p->next = 0;
+  }
+  q->size++;
+  cprintf("enqueue: %d  %d\n", p->pid, q->nice);
+}
+
+struct proc*
+dequeue(queue *q){
+  struct proc *p = q->head;
+  if (q->size == 0){
+    return 0;
+  } else if (q->size == 1){
+    q->head = 0;
+    q->tail = 0;
+  } else {
+    q->head = p->next;
+    q->head->prev = 0;
+  }
+  q->size--;
+  //cprintf("dequeue: %d  %d\n", p->pid, q->nice);
+  return p;
+}
+
+void
+remove(queue *q, struct proc *p){
+  if (q->size == 0){
+    return;
+  } else if (q->size == 1){
+    q->head = 0;
+    q->tail = 0;
+  } else if (p == q->head){
+    q->head = p->next;
+    q->head->prev = 0;
+  } else if (p == q->tail){
+    q->tail = p->prev;
+    q->tail->next = 0;
+  } else {
+    p->prev->next = p->next;
+    p->next->prev = p->prev;
+  }
+  q->size--;
+  //cprintf("remove: %d  %d\n", p->pid, q->nice);
 }
 
 // Must be called with interrupts disabled
@@ -88,6 +165,9 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->nice = 0;
+  enqueue(&q0, p);
+  cprintf("allocproc: %d\n", p->pid);
 
   release(&ptable.lock);
 
@@ -123,6 +203,10 @@ userinit(void)
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
+  queue_init(&q0, 0);
+  queue_init(&q1, 1);
+  queue_init(&q2, 2);
+
   p = allocproc();
   
   initproc = p;
@@ -139,7 +223,6 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
-  p->nice = 2;
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -278,7 +361,8 @@ wait(void)
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
-  
+  //cprintf("wait: %d\n", curproc->pid);
+
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for exited children.
@@ -289,6 +373,12 @@ wait(void)
       havekids = 1;
       if(p->state == ZOMBIE){
         // Found one.
+        if(p->nice == 0)
+          remove(&q0, p);
+        else if(p->nice == 1)
+          remove(&q1, p);
+        else if(p->nice == 2)
+          remove(&q2, p);
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;
@@ -328,35 +418,107 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
+  //cprintf("q0: %d\n",q0.head->state);
   
   for(;;){
-    // Enable interrupts on this processor.
+
     sti();
 
-    // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+    //cprintf("%d   %d   %d\n", q0.size, q1.size, q2.size);
+    for (int i = 0; i < 3; i++) {
+      if (q0.size != 0){
+        p = dequeue(&q0);
+        if (p->state == RUNNABLE){
+          //cprintf("running: %d\n", p->pid);
+          c->proc = p;
+          switchuvm(p);
+          p->state = RUNNING;
+          swtch(&c->scheduler, p->context);
+          switchkvm();
+          if (timerint == 0){
+            enqueue(&q0, p);
+          }
+          else {
+            p->nice = 1;
+            enqueue(&q1, p);
+          }
+        }
+        else {
+          enqueue(&q0, p);  // 프로세스 상태가 RUNNABLE이 아니면 다시 큐의 끝에 삽입합니다.
+        }
+      }
+      if (q1.size != 0){
+        p = dequeue(&q1);
+        if (p->state == RUNNABLE){
+          //cprintf("running: %d\n", p->pid);
+          c->proc = p;
+          switchuvm(p);
+          p->state = RUNNING;
+          swtch(&c->scheduler, p->context);
+          switchkvm();
+          if (timerint == 0){
+            enqueue(&q1, p);
+          }
+          else {
+            p->nice = 2;
+            enqueue(&q2, p);
+          }
+        }
+        else {
+          enqueue(&q1, p);
+        }
+      }
+      if (q2.size != 0){
+        p = dequeue(&q2);
+        if (p->state == RUNNABLE){
+          //cprintf("running: %d\n", p->pid);
+          c->proc = p;
+          switchuvm(p);
+          p->state = RUNNING;
+          swtch(&c->scheduler, p->context);
+          switchkvm();
+          enqueue(&q2, p);
+          }
+        else {
+          enqueue(&q2, p);
+        }
+      }
+    timerint = 0;
     }
     release(&ptable.lock);
-
   }
 }
+
+//   for(;;){
+//     // Enable interrupts on this processor.
+//     sti();
+
+//     // Loop over process table looking for process to run.
+//     acquire(&ptable.lock);
+//     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+//       if(p->state != RUNNABLE)
+//         continue;
+
+//       // Switch to chosen process.  It is the process's job
+//       // to release ptable.lock and then reacquire it
+//       // before jumping back to us.
+//       c->proc = p;
+//       switchuvm(p);
+//       p->state = RUNNING;
+
+//       swtch(&(c->scheduler), p->context);
+//       switchkvm();
+
+//       // Process is done running for now.
+//       // It should have changed its p->state before coming back.
+//       c->proc = 0;
+//     }
+//     release(&ptable.lock);
+
+//   }
+// }
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
