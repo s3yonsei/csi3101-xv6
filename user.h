@@ -25,8 +25,7 @@ int sleep(int);
 int uptime(void);
 int swapread(const char*, int);
 int swapwrite(const char*, int);
-int yield(void);
-int nice(int);
+
 
 // ulib.c
 int stat(const char*, struct stat*);

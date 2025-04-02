@@ -139,7 +139,6 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
-  p->nice = 2;
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
@@ -200,7 +199,6 @@ fork(void)
   }
   np->sz = curproc->sz;
   np->parent = curproc;
-  np->nice = curproc->nice;
   *np->tf = *curproc->tf;
 
   // Clear %eax so that fork returns 0 in the child.
@@ -499,21 +497,7 @@ kill(int pid)
   return -1;
 }
 
-int nice(int value)
-{
-	int new_nice;
-	struct proc *p = myproc();
-	acquire(&ptable.lock);
-	new_nice = p->nice + value;
-	if ( new_nice > 4 )
-		new_nice = 4;
-	else if (new_nice < -5 )
-		new_nice = -5;
-	p->nice = new_nice;
-	release(&ptable.lock);
 
-	return p->nice;
-}
 
 //PAGEBREAK: 36
 // Print a process listing to console.  For debugging.
@@ -542,7 +526,7 @@ procdump(void)
       state = states[p->state];
     else
       state = "???";
-    cprintf("%d %d %s %s", p->pid, p->nice, state, p->name);
+    cprintf("%d %s %s", p->pid, state, p->name);
     if(p->state == SLEEPING){
       getcallerpcs((uint*)p->context->ebp+2, pc);
       for(i=0; i<10 && pc[i] != 0; i++)
