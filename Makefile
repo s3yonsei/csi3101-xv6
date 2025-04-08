@@ -185,7 +185,6 @@ UPROGS=\
 	_swaptest\
 	_eevdf_test\
 
-
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
 

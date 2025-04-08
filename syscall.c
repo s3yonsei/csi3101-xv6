@@ -105,6 +105,9 @@ extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_swapread(void);
 extern int sys_swapwrite(void);
+extern int sys_yield(void);
+extern int sys_sched_setattr(void);
+extern int sys_sched_getattr(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -130,6 +133,9 @@ static int (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_swapread]	sys_swapread,
 [SYS_swapwrite] sys_swapwrite,
+[SYS_yield]   sys_yield,
+[SYS_sched_setattr] sys_sched_setattr,
+[SYS_sched_getattr] sys_sched_getattr,
 };
 
 void

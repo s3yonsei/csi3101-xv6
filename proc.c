@@ -139,7 +139,7 @@ userinit(void)
   p->tf->eflags = FL_IF;
   p->tf->esp = PGSIZE;
   p->tf->eip = 0;  // beginning of initcode.S
-
+  p->weight = 1;
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
@@ -199,6 +199,7 @@ fork(void)
   }
   np->sz = curproc->sz;
   np->parent = curproc;
+  np->weight = curproc->weight;
   *np->tf = *curproc->tf;
 
   // Clear %eax so that fork returns 0 in the child.
@@ -534,4 +535,43 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+
+int sched_setattr(int request_tick, int weight)
+{
+  struct proc *p;
+  p = myproc();
+
+  if (p == 0)
+    return -1;
+  if (request_tick <= 0)
+    return -1;
+
+  if(weight < 1) weight = 1;
+  if(weight > 5) weight = 5;
+
+  p->request_tick = request_tick;
+  p->weight = weight;
+
+  // Hint: When implementing the EEVDF scheduler, total weight needs to be updated here.
+  
+  return 0;
+}
+
+int sched_getattr(int *request_tick, int *weight)
+{
+
+  struct proc *p;
+  p = myproc();
+
+  if(p == 0)
+    return -1;
+  if(p->request_tick <= 0 || p->weight < 1 || p->weight > 5)
+    return -1;
+
+  *request_tick = p->request_tick;
+  *weight = p->weight;
+
+  return 0;
 }

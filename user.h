@@ -25,7 +25,9 @@ int sleep(int);
 int uptime(void);
 int swapread(const char*, int);
 int swapwrite(const char*, int);
-
+int yield(void);
+int sched_setattr(int,int);
+int sched_getattr(int*,int*);
 
 // ulib.c
 int stat(const char*, struct stat*);

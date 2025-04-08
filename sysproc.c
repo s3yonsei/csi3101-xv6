@@ -90,3 +90,33 @@ sys_uptime(void)
   return xticks;
 }
 
+int sys_yield(void)
+{
+	yield();
+	return 0;
+}
+
+
+int sys_sched_setattr(void){
+
+	int request_tick;
+	int weight;
+
+	if (argint(0, &request_tick)<0) return -1;
+	if (argint(1, &weight) < 0 ) return -1;
+
+	return sched_setattr(request_tick,weight);
+
+}
+
+int sys_sched_getattr(void) {
+
+    int *request_tick, *weight;
+
+    if (argptr(0, (void *)&request_tick, sizeof(int)) < 0)
+        return -1;
+    if (argptr(1, (void *)&weight, sizeof(int)) < 0)
+        return -1;
+
+    return sched_getattr(request_tick,weight);
+}
