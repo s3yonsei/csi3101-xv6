@@ -288,6 +288,6 @@ tar:
 	(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz  # the next one will be 10 (9/17)
 
 submission:
-	tar -cvf xv6_submission.tar *.c *.h *.S
+	tar -cvf xv6_submission.tar *.c *.h *.S Makefile
 
 .PHONY: dist-test dist submission
